@@ -2,6 +2,8 @@
 #include "opencv4/opencv2/highgui/highgui.hpp"
 #include "opencv4/opencv2/core/types_c.h"
 
+#include "getname.hpp"
+
 using namespace cv;
 
 int main(int argc, char** argv) {
@@ -14,7 +16,7 @@ int main(int argc, char** argv) {
 
     //write text on the matrix:
     putText(output,
-            "Hello World :)",
+            sometext(),
             cvPoint(15,70),
             FONT_HERSHEY_PLAIN,
             3,
