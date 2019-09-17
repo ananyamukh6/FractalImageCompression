@@ -9,3 +9,12 @@ pkg-config --cflags --libs opencv4  # This should show some prints
 
 
 g++ $(pkg-config --cflags --libs opencv4) -std=c++11 test.cpp -o test
+
+
+
+Using cmake:
+
+mkdir build
+cd build
+cmake ..
+./src/test_exec
