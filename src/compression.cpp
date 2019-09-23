@@ -241,5 +241,10 @@ int main(){
     auto decompressed = Decompress(transformations, 8, 4, 8);
     cout << "Done decompression\n";
     DisplayImage(decompressed);
+
+    // TODO move to a function
+    Mat ucharImg;
+    decompressed.convertTo(ucharImg, CV_8U, 255.0);
+    imwrite("FINAL.jpg", ucharImg);
     return 0;
 }
