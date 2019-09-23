@@ -90,21 +90,18 @@ cv::Mat ApplyTransformation(cv::Mat img, bool flip, int angle, float contrast=1.
 
 //TODO
 pair<float, float> FindContrastAndBrightness2 (Mat dst, Mat src){
-    return pair<float, float>{1.0,0.0};
+    assert (dst.rows == src.rows && dst.cols == src.cols);
 
-    /*
-    # Fit the contrast and the brightness
-    A = np.concatenate((np.ones((S.size, 1)), np.reshape(S, (S.size, 1))), axis=1)
-    b = np.reshape(D, (D.size,))
-    x, _, _, _ = np.linalg.lstsq(A, b)
-    #x = optimize.lsq_linear(A, b, [(-np.inf, -2.0), (np.inf, 2.0)]).x
-    return x[1], x[0]*/
+    int num_elems = dst.rows * dst.cols; // TODO replace 16 with actual size (num of elems) (4x4)
+    Mat src_flat = src.clone().reshape(0,num_elems);
+    Mat ones = Mat(num_elems, 1, CV_32FC1, Scalar(1));
+    cv::hconcat(src_flat, ones, src_flat); // src_flat.size = num_elems x 2
 
-    Mat src_flat = src.reshape(0,vector<int>{});
-    Mat dst_flat = dst.reshape(0,1);
-    Mat out_val;
-    //cv::solve(src_flat, dst_flat, out_val, DECOMP_SVD);
-    cv::solve(src, dst, out_val, DECOMP_SVD);
+    Mat dst_flat = dst.clone().reshape(0, num_elems);
+
+    Mat src_flat_inv;
+    invert(src_flat, src_flat_inv, DECOMP_SVD); // src_flat_inv.size = 2 x num_elems
+    Mat out_val = src_flat_inv * dst_flat;
     return pair<float, float>{out_val.at<float>(0), out_val.at<float>(1)};
 }
 
