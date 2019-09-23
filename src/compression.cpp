@@ -19,7 +19,7 @@ RotateFunction GetRotateMatrix(Angle);*/
 cv::Mat RotateImage(cv::Mat, int);
 cv::Mat SliceImage(cv::Mat, int, int, int, int);
 float ImgDist(Mat A, Mat B);
-using PerBlockCompressInfo = tuple<int, int, int, int, float, float>;
+using PerBlockCompressInfo = tuple<int, int, bool, int, float, float>;
 vector<vector<PerBlockCompressInfo>> Compress(Mat, int, int, int);
 Mat Decompress(vector<vector<PerBlockCompressInfo>>, int, int, int, int);
 
@@ -114,11 +114,11 @@ cv::Mat SliceImage(cv::Mat image, int row_start, int row_end, int col_start, int
     cv::Range col_range(col_start,col_end);
     return image(row_range, col_range);
 }
-using TransformedBlock = tuple<int, int, int, int, cv::Mat>;
+using TransformedBlock = tuple<int, int, bool, int, cv::Mat>;
 using TransformedBlocks = vector<TransformedBlock>;
 TransformedBlocks GenerateAllTransformedBlocks(Mat img, int src_size, int dst_size, int step){
     //Parameters
-    static const std::list<int> directions{1, -1};
+    static const std::list<bool> directions{true, false};
     static const std::list<int> angles{0, 90, 180, 270};
     int factor = src_size/dst_size;
     TransformedBlocks transformed_blocks;
@@ -181,30 +181,43 @@ vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_siz
     return transformations;
 }
 
-// TODO: populate me
-Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_size, int dst_size, int step, int nb_iter=8){
+void CopySubMat(cv::Mat cur_img, cv::Mat D, int row_start, int row_end, int col_start, int col_end) {
+  assert ((D.rows == (row_end-row_start)) && (D.cols == (col_end-col_start)));
+  Mat subMat = cur_img.colRange(col_start, col_end).rowRange(row_start, row_end);
+  D.copyTo(subMat);
+  return;
+}
+
+Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_size, int dst_size, int step, int nb_iter=16){
   int factor = src_size / dst_size;
   int dim1 = transformations.size();
   int dim2 = transformations[0].size();
   int height = dim1 * dst_size;
   int width = dim2 * dst_size;
-  Mat cur_img(height, width, CV_32FC1, Scalar(0));
+  Mat cur_img(height, width, CV_32FC1);
+  randu(cur_img, Scalar(0.0), Scalar(1.0));
+  int k, l;
+  bool flip;
+  int angle;
+  float contrast, brightness;
+
   for (int i_iter = 0; i_iter < nb_iter; i_iter++){
     for (int i = 0; i < dim1; i++){
       for (int j = 0; j < dim2; j++){
+        tie(k, l, flip, angle, contrast, brightness) = transformations[i][j];
+        auto S = Reduce(SliceImage(cur_img, k*step, k*step+src_size, l*step, l*step+src_size), factor);
+        auto D = ApplyTransformation(S, flip, angle, contrast, brightness);
+        CopySubMat(cur_img, D, i*dst_size, (i+1)*dst_size, j*dst_size, (j+1)*dst_size);
       }
     }
-
   }
   return cur_img;
 }
 
 
-
-
 int main(){
-    ReadAndDisplayImage ("lena2.png");
-    auto img = ReadImage("lena2.png");
+    ReadAndDisplayImage ("lena1.png");
+    auto img = ReadImage("lena1.png");
     //DisplayImage(img);
     cout << "Channels: " << (img.channels()) << "\n";
     //cv::Mat rot_img = RotateImage (img, 90);
