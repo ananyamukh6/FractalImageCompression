@@ -7,7 +7,7 @@
 using namespace std;
 #include <string>
 using namespace cv;
-using namespace std::chrono; 
+using namespace std::chrono;
 
 cv::Mat ReadImage (string);
 void DisplayImage(cv::Mat);
@@ -88,10 +88,10 @@ cv::Mat ApplyTransformation(cv::Mat img, bool flip, int angle, float contrast=1.
 // End of transformations
 
 
-//TODO 
+//TODO
 pair<float, float> FindContrastAndBrightness2 (Mat dst, Mat src){
     return pair<float, float>{1.0,0.0};
-    
+
     /*
     # Fit the contrast and the brightness
     A = np.concatenate((np.ones((S.size, 1)), np.reshape(S, (S.size, 1))), axis=1)
@@ -110,7 +110,7 @@ pair<float, float> FindContrastAndBrightness2 (Mat dst, Mat src){
 
 //Compression for greyscale images
 cv::Mat SliceImage(cv::Mat image, int row_start, int row_end, int col_start, int col_end){
-    cv::Range row_range(row_start,row_end); 
+    cv::Range row_range(row_start,row_end);
     cv::Range col_range(col_start,col_end);
     return image(row_range, col_range);
 }
@@ -119,7 +119,7 @@ using TransformedBlocks = vector<TransformedBlock>;
 TransformedBlocks GenerateAllTransformedBlocks(Mat img, int src_size, int dst_size, int step){
     //Parameters
     static const std::list<int> directions{1, -1};
-    static const std::list<int> angles{0, 90, 180, 270}; 
+    static const std::list<int> angles{0, 90, 180, 270};
     int factor = src_size/dst_size;
     TransformedBlocks transformed_blocks;
     for (int rows=0; rows<(img.rows - src_size)/step + 1; rows++){
@@ -148,8 +148,8 @@ float ImgDist(Mat A, Mat B) {
     for (int col = 0; col<img_Acols; col++){
         for (int row = 0; row<img_Arows; row++){
             diff = A.at<float>(col,row) - B.at<float>(col,row);
-            dist += (diff*diff);            
-        }        
+            dist += (diff*diff);
+        }
     }
     return dist;
 }
@@ -209,7 +209,3 @@ int main(){
     auto transformations = Compress(img, 8, 4, 8);
     return 0;
 }
-
-
-
-
