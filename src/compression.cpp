@@ -19,6 +19,9 @@ RotateFunction GetRotateMatrix(Angle);*/
 cv::Mat RotateImage(cv::Mat, int);
 cv::Mat SliceImage(cv::Mat, int, int, int, int);
 float ImgDist(Mat A, Mat B);
+using PerBlockCompressInfo = tuple<int, int, int, int, float, float>;
+vector<vector<PerBlockCompressInfo>> Compress(Mat, int, int, int);
+Mat Decompress(vector<vector<PerBlockCompressInfo>>, int, int, int, int);
 
 //Functions to Read And Display image and manipulate channels
 void ReadAndDisplayImage(string image){
@@ -151,7 +154,6 @@ float ImgDist(Mat A, Mat B) {
     return dist;
 }
 
-using PerBlockCompressInfo = tuple<int, int, int, int, float, float>;
 vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_size, int step){
     TransformedBlocks transformed_blocks = GenerateAllTransformedBlocks(img, src_size, dst_size, step);
     int i_count = img.rows/dst_size;
@@ -179,12 +181,30 @@ vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_siz
     return transformations;
 }
 
+// TODO: populate me
+Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_size, int dst_size, int step, int nb_iter=8){
+  int factor = src_size / dst_size;
+  int dim1 = transformations.size();
+  int dim2 = transformations[0].size();
+  int height = dim1 * dst_size;
+  int width = dim2 * dst_size;
+  Mat cur_img(height, width, CV_32FC1, Scalar(0));
+  for (int i_iter = 0; i_iter < nb_iter; i_iter++){
+    for (int i = 0; i < dim1; i++){
+      for (int j = 0; j < dim2; j++){
+      }
+    }
+
+  }
+  return cur_img;
+}
+
 
 
 
 int main(){
-    ReadAndDisplayImage ("lena1.png");
-    auto img = ReadImage("lena1.png");
+    ReadAndDisplayImage ("lena2.png");
+    auto img = ReadImage("lena2.png");
     //DisplayImage(img);
     cout << "Channels: " << (img.channels()) << "\n";
     //cv::Mat rot_img = RotateImage (img, 90);
@@ -204,5 +224,9 @@ int main(){
     GenerateAllTransformedBlocks(img, 8,4,8);
 
     auto transformations = Compress(img, 8, 4, 8);
+    cout << "Done compressing\n";
+    auto decompressed = Decompress(transformations, 8, 4, 8);
+    cout << "Done decompression\n";
+    DisplayImage(decompressed);
     return 0;
 }
