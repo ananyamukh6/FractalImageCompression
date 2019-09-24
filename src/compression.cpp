@@ -91,13 +91,12 @@ cv::Mat ApplyTransformation(cv::Mat img, bool flip, int angle, float contrast=1.
 // End of transformations
 
 
-//TODO
 pair<float, float> FindContrastAndBrightness2 (Mat dst, Mat src){
     assert (dst.rows == src.rows && dst.cols == src.cols);
 
-    int num_elems = dst.rows * dst.cols; // TODO replace 16 with actual size (num of elems) (4x4)
+    int num_elems = dst.rows * dst.cols;
     Mat src_flat = src.clone().reshape(0,num_elems);
-    Mat ones = Mat(num_elems, 1, CV_32FC1, Scalar(1));
+    Mat ones = Mat(num_elems, 1, CV_32FC1, Scalar(1.0));
     cv::hconcat(src_flat, ones, src_flat); // src_flat.size = num_elems x 2
 
     Mat dst_flat = dst.clone().reshape(0, num_elems);
@@ -173,7 +172,7 @@ vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_siz
                 float d = ImgDist(S_mod, D);
                 if (d < min_d){
                     min_d = d;
-                    transformations[rows][cols] = make_tuple(get<0>(tb), get<0>(tb), get<2>(tb), get<3>(tb), contrast, brightness);
+                    transformations[rows][cols] = make_tuple(get<0>(tb), get<1>(tb), get<2>(tb), get<3>(tb), contrast, brightness);
                 }
             }
         }
@@ -194,21 +193,30 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
   int dim2 = transformations[0].size();
   int height = dim1 * dst_size;
   int width = dim2 * dst_size;
+  Mat old_img(height, width, CV_32FC1);
   Mat cur_img(height, width, CV_32FC1);
-  randu(cur_img, Scalar(0.0), Scalar(1.0));
+  randu(old_img, Scalar(0.0), Scalar(1.0));
   int k, l;
   bool flip;
   int angle;
   float contrast, brightness;
 
+  bool something_changed = false;
   for (int i_iter = 0; i_iter < nb_iter; i_iter++){
+    cout << "Decoding iter: " << i_iter << "\n";
     for (int i = 0; i < dim1; i++){
       for (int j = 0; j < dim2; j++){
         tie(k, l, flip, angle, contrast, brightness) = transformations[i][j];
-        auto S = Reduce(SliceImage(cur_img, k*step, k*step+src_size, l*step, l*step+src_size), factor);
+        auto S = Reduce(SliceImage(old_img, k*step, k*step+src_size, l*step, l*step+src_size), factor);
         auto D = ApplyTransformation(S, flip, angle, contrast, brightness);
         CopySubMat(cur_img, D, i*dst_size, (i+1)*dst_size, j*dst_size, (j+1)*dst_size);
       }
+    }
+    DisplayImage(cur_img);
+    float dst = ImgDist(old_img, cur_img);
+    old_img = cur_img;
+    if (dst < 0.00001){
+      break;
     }
   }
   return cur_img;
@@ -216,8 +224,8 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
 
 
 int main(){
-    ReadAndDisplayImage ("lena1.png");
-    auto img = ReadImage("lena1.png");
+    ReadAndDisplayImage ("lena2.png");
+    auto img = ReadImage("lena2.png");
     //DisplayImage(img);
     cout << "Channels: " << (img.channels()) << "\n";
     //cv::Mat rot_img = RotateImage (img, 90);
