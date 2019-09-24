@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cassert>
 #include <chrono>
+#include <thread>
 using namespace std;
 #include <string>
 using namespace cv;
@@ -20,7 +21,7 @@ cv::Mat RotateImage(cv::Mat, int);
 cv::Mat SliceImage(cv::Mat, int, int, int, int);
 float ImgDist(Mat A, Mat B);
 using PerBlockCompressInfo = tuple<int, int, bool, int, float, float>;
-vector<vector<PerBlockCompressInfo>> Compress(Mat, int, int, int);
+vector<vector<PerBlockCompressInfo>> Compress(Mat, int, int, int, int);
 Mat Decompress(vector<vector<PerBlockCompressInfo>>, int, int, int, int);
 
 //Functions to Read And Display image and manipulate channels
@@ -153,11 +154,19 @@ float ImgDist(Mat A, Mat B) {
     return dist;
 }
 
-vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_size, int step){
+tuple<float, float, float> CompressHelper(TransformedBlock tb, Mat D){
+  float contrast, brightness;
+  auto S = get<4>(tb);
+  std::tie(contrast, brightness) = FindContrastAndBrightness2(D, S);
+  auto S_mod = contrast * S + brightness;
+  return make_tuple(ImgDist(S_mod, D), contrast, brightness);
+}
+
+vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_size, int step, int num_threads=4){
     TransformedBlocks transformed_blocks = GenerateAllTransformedBlocks(img, src_size, dst_size, step);
     int i_count = img.rows/dst_size;
     int j_count = img.cols/dst_size;
-    float contrast, brightness;
+    float contrast, brightness, d;
     vector<vector<PerBlockCompressInfo>> transformations(i_count);
     for (int rows = 0; rows < i_count; rows++){
         cout << "Row: " << rows << "/" << i_count << "\n";
@@ -165,16 +174,41 @@ vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_siz
         for (int cols = 0; cols<j_count; cols++){
             auto D = SliceImage(img, rows*dst_size,(rows+1)*dst_size,cols*dst_size,(cols+1)*dst_size);
             float min_d = std::numeric_limits<float>::max();
-            for (const auto& tb : transformed_blocks) {
-                auto S = get<4>(tb);
-                std::tie(contrast, brightness) = FindContrastAndBrightness2(D, S);
-                auto S_mod = contrast * S + brightness;
-                float d = ImgDist(S_mod, D);
-                if (d < min_d){
-                    min_d = d;
-                    transformations[rows][cols] = make_tuple(get<0>(tb), get<1>(tb), get<2>(tb), get<3>(tb), contrast, brightness);
+
+            if (num_threads == 1){
+              for (const auto& tb : transformed_blocks) {
+                  auto tpl = CompressHelper(tb, D);
+                  tie(d, contrast, brightness) = tpl;
+                  if (d < min_d){
+                      min_d = d;
+                      transformations[rows][cols] = make_tuple(get<0>(tb), get<1>(tb), get<2>(tb), get<3>(tb), contrast, brightness);
+                  }
+              }
+            } else {
+              vector<tuple<float, float, float>> all_results_vector(transformed_blocks.size());
+              auto worker = [&transformed_blocks, &D, &all_results_vector, &num_threads](int th_id){
+                for (int idx = th_id; idx < all_results_vector.size(); idx += num_threads){
+                  all_results_vector[idx] = CompressHelper(transformed_blocks[idx], D);
                 }
-            }
+              };
+              vector<thread> all_threads(num_threads);
+              for (int th_id = 0; th_id < num_threads; th_id++){
+                all_threads[th_id] = std::thread(worker, th_id);
+              }
+
+              for (int th_id = 0; th_id < num_threads; th_id++){
+                all_threads[th_id].join();
+              }
+
+              for (int i = 0; i < all_results_vector.size(); i++){
+                tie(d, contrast, brightness) = all_results_vector[i];
+                auto tb = transformed_blocks[i];
+                if (d < min_d){
+                  min_d = d;
+                  transformations[rows][cols] = make_tuple(get<0>(tb), get<1>(tb), get<2>(tb), get<3>(tb), contrast, brightness);
+                }
+              }
+          }
         }
     }
     return transformations;
@@ -215,7 +249,7 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
     DisplayImage(cur_img);
     float dst = ImgDist(old_img, cur_img);
     old_img = cur_img;
-    if (dst < 0.00001){
+    if (dst < 0.0000001){
       break;
     }
   }
@@ -224,8 +258,8 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
 
 
 int main(){
-    ReadAndDisplayImage ("lena2.png");
-    auto img = ReadImage("lena2.png");
+    ReadAndDisplayImage ("lena1.png");
+    auto img = ReadImage("lena1.png");
     //DisplayImage(img);
     cout << "Channels: " << (img.channels()) << "\n";
     //cv::Mat rot_img = RotateImage (img, 90);
@@ -244,10 +278,17 @@ int main(){
     cout << pixel.val[0] << "----\n";
     GenerateAllTransformedBlocks(img, 8,4,8);
 
+    auto start = std::chrono::high_resolution_clock::now();
     auto transformations = Compress(img, 8, 4, 8);
-    cout << "Done compressing\n";
+    auto finish = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = finish - start;
+    cout << "Done compressing in: " << elapsed.count() << "\n";
+
+    start = std::chrono::high_resolution_clock::now();
     auto decompressed = Decompress(transformations, 8, 4, 8);
-    cout << "Done decompression\n";
+    finish = std::chrono::high_resolution_clock::now();
+    elapsed = finish - start;
+    cout << "Done decompression in: " << elapsed.count() << "\n";
     DisplayImage(decompressed);
 
     // TODO move to a function
