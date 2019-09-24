@@ -162,7 +162,7 @@ tuple<float, float, float> CompressHelper(TransformedBlock tb, Mat D){
   return make_tuple(ImgDist(S_mod, D), contrast, brightness);
 }
 
-vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_size, int step, int num_threads=4){
+vector<vector<PerBlockCompressInfo>> Compress(Mat img, int src_size, int dst_size, int step, int num_threads=8){
     TransformedBlocks transformed_blocks = GenerateAllTransformedBlocks(img, src_size, dst_size, step);
     int i_count = img.rows/dst_size;
     int j_count = img.cols/dst_size;
@@ -247,11 +247,7 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
       }
     }
     DisplayImage(cur_img);
-    float dst = ImgDist(old_img, cur_img);
     old_img = cur_img;
-    if (dst < 0.0000001){
-      break;
-    }
   }
   return cur_img;
 }
