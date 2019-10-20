@@ -269,7 +269,7 @@ double getPSNR(const Mat& I1, const Mat& I2)
     else
     {
         double  mse =sse /(double)(I1.channels() * I1.total());
-        double psnr = 10.0*log10((1)/mse);
+        double psnr = 20.0*log10((1)/mse);
         return psnr;
     }
 }
