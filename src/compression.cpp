@@ -252,10 +252,33 @@ Mat Decompress(vector<vector<PerBlockCompressInfo>> transformations, int src_siz
   return cur_img;
 }
 
+// https://docs.opencv.org/2.4/doc/tutorials/gpu/gpu-basics-similarity/gpu-basics-similarity.html
+double getPSNR(const Mat& I1, const Mat& I2)
+{
+  // Assuming images in range 0-1 is being input
+    Mat s1;
+    absdiff(I1, I2, s1);       // |I1 - I2|
+    s1 = s1.mul(s1);           // |I1 - I2|^2
+
+    Scalar s = sum(s1);         // sum elements per channel
+
+    double sse = s.val[0] + s.val[1] + s.val[2]; // sum channels
+
+    if( sse <= 1e-10) // for small values return zero
+        return 0;
+    else
+    {
+        double  mse =sse /(double)(I1.channels() * I1.total());
+        double psnr = 10.0*log10((1)/mse);
+        return psnr;
+    }
+}
+
+
 
 int main(){
-    ReadAndDisplayImage ("lena1.png");
-    auto img = ReadImage("lena1.png");
+    ReadAndDisplayImage ("lena2.png");
+    auto img = ReadImage("lena2.png");
     //DisplayImage(img);
     cout << "Channels: " << (img.channels()) << "\n";
     //cv::Mat rot_img = RotateImage (img, 90);
@@ -275,7 +298,7 @@ int main(){
     GenerateAllTransformedBlocks(img, 8,4,8);
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto transformations = Compress(img, 8, 4, 8);
+    auto transformations = Compress(img, 8, 4, 8, 8);
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     cout << "Done compressing in: " << elapsed.count() << "\n";
@@ -285,6 +308,9 @@ int main(){
     finish = std::chrono::high_resolution_clock::now();
     elapsed = finish - start;
     cout << "Done decompression in: " << elapsed.count() << "\n";
+
+    cout << "PSNR: " << getPSNR(img, decompressed) << "\n";
+
     DisplayImage(decompressed);
 
     // TODO move to a function
