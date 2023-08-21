@@ -18,3 +18,6 @@ mkdir build
 cd build
 cmake ..
 ./src/test_exec
+
+
+For a more detailed report, please see [here](https://sites.google.com/view/ananyamukherjeehome/image-compression/fractal-compression)
